@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useContext, createContext } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, push, onValue, set } from 'firebase/database';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -11,7 +11,98 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+/* ---------- Formato de moneda ---------- */
+
+const formatoCOP = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0
+});
+
+// Versión corta para ejes de gráficos, donde el monto completo no cabe
+const formatoCOPCorto = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  notation: 'compact',
+  maximumFractionDigits: 1
+});
+
+const formatCOP = (monto) => formatoCOP.format(monto || 0);
+const formatCOPCorto = (monto) => formatoCOPCorto.format(monto || 0);
+
+/* ---------- Toast reutilizable ---------- */
+
+const ToastContext = createContext(() => {});
+const useToast = () => useContext(ToastContext);
+
+function ToastProvider({ children }) {
+  const [toast, setToast] = useState(null);
+
+  const mostrarToast = useCallback((mensaje) => {
+    setToast({ id: Date.now(), mensaje });
+  }, []);
+
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 2000);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  return (
+    <ToastContext.Provider value={mostrarToast}>
+      {children}
+      {/* key fuerza reiniciar la animación si sale un toast tras otro */}
+      {toast && <div key={toast.id} className="toast" role="status">{toast.mensaje}</div>}
+    </ToastContext.Provider>
+  );
+}
+
+/* ---------- Utilidades ---------- */
+
+function useEsMobile() {
+  const [esMobile, setEsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const handler = (e) => setEsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  return esMobile;
+}
+
+function tiempoTranscurrido(fecha) {
+  const minutos = Math.floor((Date.now() - new Date(fecha).getTime()) / 60000);
+  if (minutos < 1) return 'hace un momento';
+  if (minutos < 60) return `hace ${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `hace ${horas} ${horas === 1 ? 'hora' : 'horas'}`;
+  const dias = Math.floor(horas / 24);
+  return `hace ${dias} ${dias === 1 ? 'día' : 'días'}`;
+}
+
+function formatoHora(fecha) {
+  return new Date(fecha).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function formatoDiaMes(fecha) {
+  const d = new Date(fecha);
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/* ---------- App ---------- */
+
 export default function App() {
+  return (
+    <ToastProvider>
+      <AppContenido />
+    </ToastProvider>
+  );
+}
+
+function AppContenido() {
   const [familias, setFamilias] = useState([]);
   const [actualizaciones, setActualizaciones] = useState([]);
   const [gastos, setGastos] = useState([]);
@@ -65,17 +156,14 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>Recolecta Humanitaria 🤝</h1>
-        <p>Chocó y Pereira</p>
+        <h1>Recolecta Humanitaria Grupo Manga 🤝</h1>
       </header>
 
       <nav className="nav">
         <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
-        <button className={activeTab === 'familias' ? 'active' : ''} onClick={() => setActiveTab('familias')}>Familias</button>
         <button className={activeTab === 'actualizar' ? 'active' : ''} onClick={() => setActiveTab('actualizar')}>Actualizar Total</button>
-        <button className={activeTab === 'familia' ? 'active' : ''} onClick={() => setActiveTab('familia')}>Registrar Familia</button>
-        <button className={activeTab === 'gasto' ? 'active' : ''} onClick={() => setActiveTab('gasto')}>Registrar Gasto</button>
-        <button className={activeTab === 'gastos' ? 'active' : ''} onClick={() => setActiveTab('gastos')}>Ver Gastos</button>
+        <button className={activeTab === 'familias' ? 'active' : ''} onClick={() => setActiveTab('familias')}>Familias</button>
+        <button className={activeTab === 'gastos' ? 'active' : ''} onClick={() => setActiveTab('gastos')}>Gastos</button>
       </nav>
 
       <main className="content">
@@ -93,36 +181,19 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'familia' && <FormFamilia />}
         {activeTab === 'actualizar' && <FormActualizarTotal />}
-        {activeTab === 'gasto' && <FormGasto />}
-        {activeTab === 'familias' && <ListaFamilias familias={familias} />}
-        {activeTab === 'gastos' && <ListaGastos gastos={gastos} />}
+        {activeTab === 'familias' && <PaginaFamilias familias={familias} />}
+        {activeTab === 'gastos' && <PaginaGastos gastos={gastos} />}
       </main>
     </div>
   );
 }
 
-function tiempoTranscurrido(fecha) {
-  const minutos = Math.floor((Date.now() - new Date(fecha).getTime()) / 60000);
-  if (minutos < 1) return 'hace un momento';
-  if (minutos < 60) return `hace ${minutos} min`;
-  const horas = Math.floor(minutos / 60);
-  if (horas < 24) return `hace ${horas} ${horas === 1 ? 'hora' : 'horas'}`;
-  const dias = Math.floor(horas / 24);
-  return `hace ${dias} ${dias === 1 ? 'día' : 'días'}`;
-}
-
-function formatoHora(fecha) {
-  return new Date(fecha).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
-}
-
-function formatoDiaMes(fecha) {
-  const d = new Date(fecha);
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
+/* ---------- Dashboard ---------- */
 
 function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, familiaEntregadas, gastoPorCategoria, actualizaciones, ultimaActualizacion, gastos }) {
+  const esMobile = useEsMobile();
+
   // Refresca el "hace X min" cada minuto sin depender de nuevos datos
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -135,12 +206,14 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
     monto: a.monto
   }));
 
+  const alturaGrafico = esMobile ? 220 : 300;
+
   return (
     <div className="dashboard">
       <div className="cards">
-        <Card label="Dinero Recogido" value={`$${totalRecogido.toLocaleString('es-CO')}`} color="green" />
-        <Card label="Dinero Gastado" value={`$${totalGastado.toLocaleString('es-CO')}`} color="red" />
-        <Card label="Disponible" value={`$${disponible.toLocaleString('es-CO')}`} color="blue" />
+        <Card label="Dinero Recogido" value={formatCOP(totalRecogido)} color="green" />
+        <Card label="Dinero Gastado" value={formatCOP(totalGastado)} color="red" />
+        <Card label="Disponible" value={formatCOP(disponible)} color="blue" />
         <Card label="Familias" value={numFamilias} color="purple" />
         <Card label="Entregadas" value={`${familiaEntregadas}/${numFamilias}`} color="teal" />
       </div>
@@ -156,19 +229,26 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
         {datosGrafico.length < 2 ? (
           <p className="muted">Aún no hay suficientes datos</p>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={datosGrafico} margin={{ top: 8, right: 16, bottom: 0, left: 8 }}>
+          <ResponsiveContainer width="100%" height={alturaGrafico}>
+            <LineChart data={datosGrafico} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
-              <XAxis dataKey="hora" tick={{ fontSize: 12, fill: '#999' }} tickLine={false} axisLine={{ stroke: '#e0e0e0' }} />
+              <XAxis
+                dataKey="hora"
+                tick={{ fontSize: 12, fill: '#999' }}
+                tickLine={false}
+                axisLine={{ stroke: '#e0e0e0' }}
+                interval="preserveStartEnd"
+                minTickGap={esMobile ? 28 : 12}
+              />
               <YAxis
                 tick={{ fontSize: 12, fill: '#999' }}
                 tickLine={false}
                 axisLine={false}
-                width={80}
-                tickFormatter={(value) => `$${value.toLocaleString('es-CO')}`}
+                width={esMobile ? 52 : 72}
+                tickFormatter={formatCOPCorto}
               />
               <Tooltip
-                formatter={(value) => [`$${value.toLocaleString('es-CO')} COP`, 'Total']}
+                formatter={(value) => [formatCOP(value), 'Total']}
                 labelFormatter={(label) => `Hora: ${label}`}
               />
               <Line
@@ -187,10 +267,10 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
       {actualizaciones.length > 0 && (
         <div className="recent-section">
           <h2>Historial de Actualizaciones</h2>
-          <div className="list">
+          <div className="list historial">
             {[...actualizaciones].reverse().map(a => (
               <div key={a.id} className="item">
-                <span>${a.monto.toLocaleString('es-CO')} COP</span>
+                <span>{formatCOP(a.monto)}</span>
                 <span className="muted">{formatoDiaMes(a.fecha)} · {formatoHora(a.fecha)}</span>
               </div>
             ))}
@@ -201,13 +281,29 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
       {gastoPorCategoria.length > 0 && (
         <div className="chart-container">
           <h2>Gastos por Categoría</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={gastoPorCategoria}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip formatter={(value) => `$${value.toLocaleString('es-CO')}`} />
-              <Bar dataKey="value" fill="#8884d8" />
+          <ResponsiveContainer width="100%" height={alturaGrafico}>
+            <BarChart data={gastoPorCategoria} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
+              {/* En mobile las categorías se inclinan para que quepan las 5 sin encimarse */}
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: esMobile ? 10 : 12, fill: '#999' }}
+                tickLine={false}
+                axisLine={{ stroke: '#e0e0e0' }}
+                interval={0}
+                angle={esMobile ? -35 : 0}
+                textAnchor={esMobile ? 'end' : 'middle'}
+                height={esMobile ? 60 : 30}
+              />
+              <YAxis
+                tick={{ fontSize: 12, fill: '#999' }}
+                tickLine={false}
+                axisLine={false}
+                width={esMobile ? 52 : 72}
+                tickFormatter={formatCOPCorto}
+              />
+              <Tooltip formatter={(value) => [formatCOP(value), 'Gastado']} />
+              <Bar dataKey="value" fill="#667eea" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -219,8 +315,8 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
           <div className="list">
             {gastos.slice(-5).reverse().map(g => (
               <div key={g.id} className="item">
-                <span>${g.monto.toLocaleString('es-CO')} • {g.queSe}</span>
-                <span className="muted">{g.categoria} • {new Date(g.fecha).toLocaleDateString()}</span>
+                <span>{formatCOP(g.monto)} • {g.queSe}</span>
+                <span className="muted">{g.categoria} • {new Date(g.fecha).toLocaleDateString('es-CO')}</span>
               </div>
             ))}
           </div>
@@ -239,64 +335,33 @@ function Card({ label, value, color }) {
   );
 }
 
-function FormFamilia() {
-  const [form, setForm] = useState({ nombre: '', personas: '', necesidades: [], contacto: '' });
+/* ---------- Input de monto formateado ---------- */
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!form.nombre.trim()) {
-      alert('Nombre es requerido');
-      return;
-    }
-    push(ref(db, 'familias'), {
-      nombre: form.nombre,
-      personas: parseInt(form.personas) || 0,
-      necesidades: form.necesidades,
-      contacto: form.contacto,
-      fecha: new Date().toISOString(),
-      entregado: false
-    });
-    setForm({ nombre: '', personas: '', necesidades: [], contacto: '' });
-    alert('Familia registrada');
-  };
-
-  const handleCheck = (cat) => {
-    setForm({
-      ...form,
-      necesidades: form.necesidades.includes(cat)
-        ? form.necesidades.filter(x => x !== cat)
-        : [...form.necesidades, cat]
-    });
-  };
-
+// Guarda solo dígitos, muestra el valor formateado en COP mientras se escribe
+function InputMonto({ value, onChange, placeholder }) {
   return (
-    <form onSubmit={handleSubmit} className="form">
-      <h2>Registrar Familia</h2>
-      <input type="text" placeholder="Nombre familia" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required />
-      <input type="number" placeholder="# de personas" value={form.personas} onChange={(e) => setForm({ ...form, personas: e.target.value })} />
-      <input type="text" placeholder="Contacto responsable" value={form.contacto} onChange={(e) => setForm({ ...form, contacto: e.target.value })} />
-      <fieldset>
-        <legend>Necesidades</legend>
-        {['Aseo', 'Alimento', 'Construcción', 'Bebés', 'Salud'].map(cat => (
-          <label key={cat}>
-            <input type="checkbox" checked={form.necesidades.includes(cat)} onChange={() => handleCheck(cat)} />
-            {cat}
-          </label>
-        ))}
-      </fieldset>
-      <button type="submit">Guardar Familia</button>
-    </form>
+    <input
+      type="text"
+      inputMode="numeric"
+      placeholder={placeholder}
+      value={value ? formatCOP(parseInt(value, 10)) : ''}
+      onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
+      required
+    />
   );
 }
 
+/* ---------- Actualizar Total ---------- */
+
 function FormActualizarTotal() {
   const [monto, setMonto] = useState('');
+  const mostrarToast = useToast();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const valor = parseInt(monto);
-    if (!monto.trim() || isNaN(valor) || valor <= 0) {
-      alert('El total debe ser un número mayor a 0');
+    const valor = parseInt(monto, 10);
+    if (!monto || isNaN(valor) || valor <= 0) {
+      mostrarToast('Ingresa un total mayor a 0');
       return;
     }
     // Sin validar contra el total anterior: se permite corregir errores hacia abajo
@@ -305,72 +370,57 @@ function FormActualizarTotal() {
       fecha: new Date().toISOString()
     });
     setMonto('');
-    alert('Total actualizado');
+    mostrarToast('Total actualizado');
   };
 
   return (
     <form onSubmit={handleSubmit} className="form">
       <h2>Actualizar Total</h2>
-      <input
-        type="number"
-        placeholder="Total acumulado (COP)"
-        value={monto}
-        onChange={(e) => setMonto(e.target.value)}
-        required
-      />
+      <InputMonto value={monto} onChange={setMonto} placeholder="Total acumulado (COP)" />
       <button type="submit">Actualizar Total</button>
     </form>
   );
 }
 
-function FormGasto() {
-  const [form, setForm] = useState({ categoria: 'Aseo', monto: '', queSe: '', quienCompro: '', factura: '' });
+/* ---------- Familias (form + lista) ---------- */
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setForm({ ...form, factura: event.target.result });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+function PaginaFamilias({ familias }) {
+  return (
+    <div className="pagina">
+      <FormFamilia />
+      <ListaFamilias familias={familias} />
+    </div>
+  );
+}
+
+function FormFamilia() {
+  const [form, setForm] = useState({ nombre: '', personas: '', contacto: '' });
+  const mostrarToast = useToast();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.monto || parseInt(form.monto) <= 0) {
-      alert('Monto debe ser mayor a 0');
+    if (!form.nombre.trim()) {
+      mostrarToast('Nombre es requerido');
       return;
     }
-    push(ref(db, 'gastos'), {
-      categoria: form.categoria,
-      monto: parseInt(form.monto),
-      queSe: form.queSe,
-      quienCompro: form.quienCompro,
-      factura: form.factura || null,
-      fecha: new Date().toISOString()
+    push(ref(db, 'familias'), {
+      nombre: form.nombre,
+      personas: parseInt(form.personas, 10) || 0,
+      contacto: form.contacto,
+      fecha: new Date().toISOString(),
+      entregado: false
     });
-    setForm({ categoria: 'Aseo', monto: '', queSe: '', quienCompro: '', factura: '' });
-    alert('Gasto registrado');
+    setForm({ nombre: '', personas: '', contacto: '' });
+    mostrarToast('Familia registrada');
   };
 
   return (
     <form onSubmit={handleSubmit} className="form">
-      <h2>Registrar Gasto</h2>
-      <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
-        <option>Aseo</option>
-        <option>Alimento</option>
-        <option>Construcción</option>
-        <option>Bebés</option>
-        <option>Salud</option>
-      </select>
-      <input type="number" placeholder="Monto (COP)" value={form.monto} onChange={(e) => setForm({ ...form, monto: e.target.value })} required />
-      <input type="text" placeholder="¿Qué se compró?" value={form.queSe} onChange={(e) => setForm({ ...form, queSe: e.target.value })} />
-      <input type="text" placeholder="¿Quién compró? (opcional)" value={form.quienCompro} onChange={(e) => setForm({ ...form, quienCompro: e.target.value })} />
-      <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={handleFileUpload} />
-      {form.factura && <p className="muted">Factura adjunta ✓</p>}
-      <button type="submit">Registrar Gasto</button>
+      <h2>Registrar Familia</h2>
+      <input type="text" placeholder="Nombre familia" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required />
+      <input type="number" inputMode="numeric" placeholder="# de personas" value={form.personas} onChange={(e) => setForm({ ...form, personas: e.target.value })} />
+      <input type="text" placeholder="Contacto responsable" value={form.contacto} onChange={(e) => setForm({ ...form, contacto: e.target.value })} />
+      <button type="submit">Guardar Familia</button>
     </form>
   );
 }
@@ -378,9 +428,11 @@ function FormGasto() {
 function ListaFamilias({ familias }) {
   const [busqueda, setBusqueda] = useState('');
   const [expandida, setExpandida] = useState(null);
+  const mostrarToast = useToast();
 
   const marcarEntregado = (id, entregado) => {
     set(ref(db, `familias/${id}/entregado`), !entregado);
+    mostrarToast(entregado ? 'Marcada pendiente' : 'Marcada entregada');
   };
 
   const filtradas = familias.filter(f =>
@@ -425,7 +477,6 @@ function ListaFamilias({ familias }) {
                   <div className="familia-detalle">
                     <p><strong># Personas:</strong> {f.personas || '-'}</p>
                     <p><strong>Contacto:</strong> {f.contacto || '-'}</p>
-                    <p><strong>Necesidades:</strong> {f.necesidades?.join(', ') || '-'}</p>
                     <button
                       className={`btn-estado ${f.entregado ? 'entregado' : 'pendiente'}`}
                       onClick={() => marcarEntregado(f.id, f.entregado)}
@@ -440,6 +491,71 @@ function ListaFamilias({ familias }) {
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------- Gastos (form + tabla) ---------- */
+
+function PaginaGastos({ gastos }) {
+  return (
+    <div className="pagina">
+      <FormGasto />
+      <ListaGastos gastos={gastos} />
+    </div>
+  );
+}
+
+function FormGasto() {
+  const [form, setForm] = useState({ categoria: 'Aseo', monto: '', queSe: '', quienCompro: '', factura: '' });
+  const mostrarToast = useToast();
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setForm({ ...form, factura: event.target.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const valor = parseInt(form.monto, 10);
+    if (!form.monto || isNaN(valor) || valor <= 0) {
+      mostrarToast('El monto debe ser mayor a 0');
+      return;
+    }
+    push(ref(db, 'gastos'), {
+      categoria: form.categoria,
+      monto: valor,
+      queSe: form.queSe,
+      quienCompro: form.quienCompro,
+      factura: form.factura || null,
+      fecha: new Date().toISOString()
+    });
+    setForm({ categoria: 'Aseo', monto: '', queSe: '', quienCompro: '', factura: '' });
+    mostrarToast('Gasto registrado');
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="form">
+      <h2>Registrar Gasto</h2>
+      <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
+        <option>Aseo</option>
+        <option>Alimento</option>
+        <option>Construcción</option>
+        <option>Bebés</option>
+        <option>Salud</option>
+      </select>
+      <InputMonto value={form.monto} onChange={(monto) => setForm({ ...form, monto })} placeholder="Monto (COP)" />
+      <input type="text" placeholder="¿Qué se compró?" value={form.queSe} onChange={(e) => setForm({ ...form, queSe: e.target.value })} />
+      <input type="text" placeholder="¿Quién compró? (opcional)" value={form.quienCompro} onChange={(e) => setForm({ ...form, quienCompro: e.target.value })} />
+      <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={handleFileUpload} />
+      {form.factura && <p className="muted">Factura adjunta ✓</p>}
+      <button type="submit">Registrar Gasto</button>
+    </form>
   );
 }
 
@@ -473,10 +589,10 @@ function ListaGastos({ gastos }) {
               {gastos.map(g => (
                 <tr key={g.id}>
                   <td>{g.categoria}</td>
-                  <td>${g.monto.toLocaleString('es-CO')}</td>
+                  <td>{formatCOP(g.monto)}</td>
                   <td>{g.queSe}</td>
                   <td>{g.quienCompro || '-'}</td>
-                  <td>{new Date(g.fecha).toLocaleDateString()}</td>
+                  <td>{new Date(g.fecha).toLocaleDateString('es-CO')}</td>
                   <td>
                     {g.factura ? (
                       <button className="link" onClick={() => descargarFactura(g.factura)}>

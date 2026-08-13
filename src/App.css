@@ -26,13 +26,9 @@ body {
 
 .header h1 {
   font-size: 2rem;
-  margin-bottom: 0.5rem;
 }
 
-.header p {
-  font-size: 0.95rem;
-  opacity: 0.9;
-}
+/* ---------- Navegación ---------- */
 
 .nav {
   display: flex;
@@ -41,16 +37,18 @@ body {
   padding: 1rem;
   background: #f9f9f9;
   border-bottom: 1px solid #e0e0e0;
-  overflow-x: auto;
 }
 
 .nav button {
+  flex: 1 1 auto;
+  min-height: 44px;
   padding: 0.5rem 1rem;
   background: white;
   border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-family: inherit;
   white-space: nowrap;
   transition: all 0.2s;
 }
@@ -70,14 +68,22 @@ body {
   padding: 2rem;
 }
 
+/* Páginas que combinan formulario + listado */
+.pagina {
+  display: grid;
+  gap: 2rem;
+}
+
 .dashboard {
   display: grid;
   gap: 2rem;
 }
 
+/* ---------- Cards ---------- */
+
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 1rem;
 }
 
@@ -95,8 +101,9 @@ body {
 }
 
 .card-value {
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   font-weight: bold;
+  word-break: break-word;
 }
 
 .card-green {
@@ -118,6 +125,14 @@ body {
 .card-teal {
   background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
 }
+
+.ultima-actualizacion {
+  margin-top: -1rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* ---------- Gráficos y listados ---------- */
 
 .chart-container {
   background: white;
@@ -148,10 +163,19 @@ body {
   gap: 0.75rem;
 }
 
+/* El historial no crece indefinidamente: hace scroll dentro de su caja */
+.historial {
+  max-height: 300px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 0.25rem;
+}
+
 .item {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   padding: 0.75rem;
   border-bottom: 1px solid #eee;
   font-size: 0.95rem;
@@ -165,6 +189,8 @@ body {
   color: #999;
   font-size: 0.85rem;
 }
+
+/* ---------- Formularios ---------- */
 
 .form {
   max-width: 600px;
@@ -184,11 +210,14 @@ body {
 .form input,
 .form select,
 .form textarea {
+  width: 100%;
   padding: 0.75rem;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 0.95rem;
+  /* 16px evita que iOS haga zoom automático al enfocar el campo */
+  font-size: 16px;
   font-family: inherit;
+  min-height: 44px;
 }
 
 .form input:focus,
@@ -204,37 +233,14 @@ body {
   min-height: 80px;
 }
 
-.form fieldset {
-  border: 1px solid #ddd;
-  padding: 1rem;
-  border-radius: 4px;
-}
-
-.form fieldset legend {
-  padding: 0 0.5rem;
-  color: #667eea;
-  font-weight: 600;
-}
-
-.form label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  font-size: 0.95rem;
-}
-
-.form label input[type="checkbox"] {
-  cursor: pointer;
-}
-
 .form button {
+  min-height: 44px;
   padding: 0.75rem 1.5rem;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
   border-radius: 4px;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -248,6 +254,8 @@ body {
 .form button:active {
   transform: translateY(0);
 }
+
+/* ---------- Listados ---------- */
 
 .lista {
   background: white;
@@ -263,6 +271,8 @@ body {
 
 .table-container {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 .lista table {
@@ -280,54 +290,27 @@ body {
   text-align: left;
   font-weight: 600;
   border-bottom: 2px solid #ddd;
+  white-space: nowrap;
 }
 
 .lista td {
   padding: 0.75rem;
   border-bottom: 1px solid #eee;
+  white-space: nowrap;
 }
 
 .lista tr:hover {
   background: #fafafa;
 }
 
-.btn-estado {
-  padding: 0.4rem 0.8rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-estado.entregado {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.btn-estado.pendiente {
-  background: #fecaca;
-  color: #7f1d1d;
-}
-
-.btn-estado:hover {
-  opacity: 0.8;
-}
-
-.ultima-actualizacion {
-  margin-top: -1rem;
-  color: #666;
-  font-size: 0.9rem;
-}
-
 .buscador {
   width: 100%;
+  min-height: 44px;
   padding: 0.75rem;
   margin-bottom: 1rem;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 0.95rem;
+  font-size: 16px;
   font-family: inherit;
 }
 
@@ -336,6 +319,8 @@ body {
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
+
+/* ---------- Familias expandibles ---------- */
 
 .familias-cards {
   display: grid;
@@ -353,8 +338,10 @@ body {
   border-color: #667eea;
 }
 
+/* Toda la fila es el área de tap, no solo el texto */
 .familia-header {
   width: 100%;
+  min-height: 56px;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -388,10 +375,11 @@ body {
 }
 
 .badge {
-  padding: 0.25rem 0.6rem;
+  padding: 0.3rem 0.6rem;
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .badge.entregado {
@@ -405,17 +393,42 @@ body {
 }
 
 .familia-detalle {
-  padding: 0 1rem 1rem 2.4rem;
+  padding: 1rem 1rem 1.25rem 2.4rem;
   display: grid;
-  gap: 0.5rem;
-  font-size: 0.9rem;
+  gap: 0.6rem;
+  font-size: 0.95rem;
   border-top: 1px solid #eee;
-  padding-top: 1rem;
+}
+
+.btn-estado {
+  min-height: 44px;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .familia-detalle .btn-estado {
   justify-self: start;
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.btn-estado.entregado {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.btn-estado.pendiente {
+  background: #fecaca;
+  color: #7f1d1d;
+}
+
+.btn-estado:hover {
+  opacity: 0.8;
 }
 
 .link {
@@ -425,36 +438,104 @@ body {
   cursor: pointer;
   text-decoration: underline;
   font-size: 0.9rem;
-  padding: 0;
+  font-family: inherit;
+  padding: 0.5rem 0;
+  min-height: 44px;
 }
 
 .link:hover {
   color: #764ba2;
 }
 
+/* ---------- Toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 2rem;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 0.85rem 1.5rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  pointer-events: none;
+  max-width: calc(100vw - 2rem);
+  text-align: center;
+  animation: toast-in-out 2s ease forwards;
+}
+
+@keyframes toast-in-out {
+  0% { opacity: 0; transform: translate(-50%, 1rem); }
+  10% { opacity: 1; transform: translate(-50%, 0); }
+  80% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 0.5rem); }
+}
+
+/* ---------- Mobile ---------- */
+
 @media (max-width: 768px) {
-  .cards {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  .header {
+    padding: 1.5rem 1rem;
+  }
+
+  .header h1 {
+    font-size: 1.4rem;
   }
 
   .nav {
-    padding: 0.5rem;
+    padding: 0.75rem;
   }
 
+  /* Dos botones por fila: los 4 caben en 2 filas, sin scroll horizontal */
   .nav button {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.8rem;
+    flex: 1 1 calc(50% - 0.25rem);
+    padding: 0.6rem 0.5rem;
+    font-size: 0.9rem;
   }
 
   .content {
     padding: 1rem;
   }
 
-  .form {
-    max-width: 100%;
+  .dashboard,
+  .pagina {
+    gap: 1.25rem;
+  }
+
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .card {
+    padding: 1rem;
   }
 
   .card-value {
-    font-size: 1.4rem;
+    font-size: 1.15rem;
+  }
+
+  .chart-container,
+  .lista {
+    padding: 1.25rem 1rem;
+  }
+
+  .form {
+    max-width: 100%;
+    padding: 1.25rem 1rem;
+  }
+
+  .item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .toast {
+    bottom: 1.25rem;
   }
 }
