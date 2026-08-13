@@ -261,7 +261,7 @@ function AppContenido() {
 
       <nav className="nav">
         <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
-        <button className={activeTab === 'actualizar' ? 'active' : ''} onClick={() => setActiveTab('actualizar')}>Actualizar Total</button>
+        <button className={activeTab === 'actualizar' ? 'active' : ''} onClick={() => setActiveTab('actualizar')}>Actualizar Dinero</button>
         <button className={activeTab === 'familias' ? 'active' : ''} onClick={() => setActiveTab('familias')}>Familias</button>
         <button className={activeTab === 'ideas' ? 'active' : ''} onClick={() => setActiveTab('ideas')}>Ideas Compras</button>
         <button className={activeTab === 'gastos' ? 'active' : ''} onClick={() => setActiveTab('gastos')}>Gastos</button>
@@ -282,7 +282,7 @@ function AppContenido() {
           />
         )}
 
-        {activeTab === 'actualizar' && <FormActualizarTotal />}
+        {activeTab === 'actualizar' && <FormActualizarDinero totalRecogido={totalRecogido} />}
         {activeTab === 'familias' && <PaginaFamilias familias={familias} />}
         {activeTab === 'ideas' && <PaginaIdeasCompras prioridades={prioridades} />}
         {activeTab === 'gastos' && <PaginaGastos gastos={gastos} />}
@@ -494,9 +494,22 @@ function InputMonto({ value, onChange, placeholder }) {
   );
 }
 
-/* ---------- Actualizar Total ---------- */
+/* ---------- Actualizar Dinero ---------- */
 
-function FormActualizarTotal() {
+// En ambos casos se guarda el TOTAL acumulado resultante en `monto`, no el
+// aporte suelto: el dashboard y el gráfico leen ese campo como el total
+// vigente. `tipo` solo registra cómo se llegó a esa cifra.
+function FormActualizarDinero({ totalRecogido }) {
+  return (
+    <div className="dinero">
+      <h2>Actualizar Dinero 💰</h2>
+      <FormTotal />
+      <FormAporte totalRecogido={totalRecogido} />
+    </div>
+  );
+}
+
+function FormTotal() {
   const [monto, setMonto] = useState('');
   const mostrarToast = useToast();
 
@@ -510,17 +523,63 @@ function FormActualizarTotal() {
     // Sin validar contra el total anterior: se permite corregir errores hacia abajo
     push(ref(db, 'actualizaciones'), {
       monto: valor,
-      fecha: new Date().toISOString()
+      fecha: new Date().toISOString(),
+      tipo: 'actualización'
     });
     setMonto('');
-    mostrarToast('Total actualizado');
+    mostrarToast(`Total actualizado a ${formatCOP(valor)}`);
   };
 
   return (
     <form onSubmit={handleSubmit} className="form">
-      <h2>Actualizar Total</h2>
+      <h3>Actualizar Total</h3>
+      <p className="form-copy">
+        Usar cuando conoces el monto total exacto recogido
+        (ej: sacaste dinero de la cuenta principal).
+      </p>
       <InputMonto value={monto} onChange={setMonto} placeholder="Total acumulado (COP)" />
       <button type="submit">Actualizar Total</button>
+    </form>
+  );
+}
+
+function FormAporte({ totalRecogido }) {
+  const [monto, setMonto] = useState('');
+  const mostrarToast = useToast();
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const aporte = parseInt(monto, 10);
+    if (!monto || isNaN(aporte) || aporte <= 0) {
+      mostrarToast('Ingresa un aporte mayor a 0');
+      return;
+    }
+    const nuevoTotal = totalRecogido + aporte;
+    push(ref(db, 'actualizaciones'), {
+      monto: nuevoTotal,
+      fecha: new Date().toISOString(),
+      tipo: 'aporte'
+    });
+    setMonto('');
+    mostrarToast(`Aporte de ${formatCOP(aporte)} agregado. Nuevo total: ${formatCOP(nuevoTotal)}`);
+  };
+
+  const aporteEnCurso = parseInt(monto, 10);
+  const previsto = monto && !isNaN(aporteEnCurso) ? totalRecogido + aporteEnCurso : null;
+
+  return (
+    <form onSubmit={handleSubmit} className="form">
+      <h3>Agregar Aporte</h3>
+      <p className="form-copy">
+        Usar cuando llegó dinero nuevo y quieres sumarlo al total actual
+        (ej: nuevas donaciones en Nequi).
+      </p>
+      <InputMonto value={monto} onChange={setMonto} placeholder="Monto del aporte (COP)" />
+      <p className="form-copy">
+        Total actual: <strong>{formatCOP(totalRecogido)}</strong>
+        {previsto !== null && <> · Quedará en <strong>{formatCOP(previsto)}</strong></>}
+      </p>
+      <button type="submit">Agregar Aporte</button>
     </form>
   );
 }

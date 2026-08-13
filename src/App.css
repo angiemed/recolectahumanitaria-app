@@ -407,6 +407,36 @@ textarea:focus {
   transform: translateY(0);
 }
 
+/* ---------- Actualizar Dinero: dos formas separadas ---------- */
+
+.dinero {
+  display: grid;
+  gap: 1.5rem;
+}
+
+/* En móvil cada formulario ocupa el ancho completo, uno debajo del otro */
+.dinero > * {
+  min-width: 0;
+}
+
+.dinero .form h3 {
+  margin-bottom: 0;
+}
+
+/* Texto de ayuda que explica cuándo usar cada opción. El gap del .form ya
+   separa los bloques, así que aquí se recorta para pegarlo a su título. */
+.form-copy {
+  margin-top: -0.6rem;
+  color: #666;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.form-copy strong {
+  color: #333;
+  font-weight: 700;
+}
+
 /* Etiquetas de los formularios de edición inline (familias) */
 .campo {
   display: grid;
