@@ -60,7 +60,7 @@ const CATEGORIAS_REFERENCIA = [
   {
     id: 'ropa-otros',
     titulo: 'Ropa / Otros',
-    emoji: '🧦',
+    emoji: '👕',
     items: [
       'Pañales (niños y adultos)', 'Ropa de bebé',
       'Bombillos recargables (panel solar)'
@@ -93,7 +93,7 @@ const CATEGORIAS_REFERENCIA = [
   {
     id: 'mascotas',
     titulo: 'Mascotas',
-    emoji: '🐶🐱',
+    emoji: '🐶',
     items: [
       'Prednisolona', 'Meloxicam veterinario', 'Carprofeno', 'Robenacoxib',
       'Amoxicilina', 'Suturas', 'Kit de suturas', 'Catéter intravenoso',
@@ -256,7 +256,7 @@ function AppContenido() {
   return (
     <div className="app">
       <header className="header">
-        <h1>Recolecta Humanitaria Grupo Manga 🤝</h1>
+        <h1>Recolecta Grupo Manga 🤝</h1>
       </header>
 
       <nav className="nav">
@@ -320,21 +320,51 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
 
   const alturaGrafico = esMobile ? 220 : 300;
 
+  // Cuánto subió (o bajó) respecto a la actualización anterior
+  const anterior = actualizaciones[actualizaciones.length - 2];
+  const delta = anterior ? totalRecogido - anterior.monto : null;
+
+  const pctEntregadas = numFamilias > 0
+    ? Math.round((familiaEntregadas / numFamilias) * 100)
+    : 0;
+
   return (
     <div className="dashboard">
-      <div className="cards">
-        <Card label="Dinero Recogido" value={formatCOP(totalRecogido)} color="green" />
-        <Card label="Dinero Gastado" value={formatCOP(totalGastado)} color="red" />
-        <Card label="Disponible" value={formatCOP(disponible)} color="blue" />
-        <Card label="Familias" value={numFamilias} color="purple" />
-        <Card label="Entregadas" value={`${familiaEntregadas}/${numFamilias}`} color="teal" />
+      {/* La cifra que todos vienen a ver: ocupa el bloque entero */}
+      <section className="hero">
+        <p className="hero-label">Recogido</p>
+        <p className="hero-value">{formatCOP(totalRecogido)}</p>
+        {delta !== null && delta !== 0 && (
+          <p className={`hero-delta ${delta > 0 ? 'sube' : 'baja'}`}>
+            {delta > 0 ? '▲' : '▼'} {formatCOP(Math.abs(delta))} desde la actualización anterior
+          </p>
+        )}
+        {ultimaActualizacion && (
+          <p className="hero-fecha">Actualizado {tiempoTranscurrido(ultimaActualizacion.fecha)}</p>
+        )}
+      </section>
+
+      {/* Cifras de apoyo: mismo dato, menos peso visual */}
+      <div className="stats">
+        <div className="stat stat-rojo">
+          <p className="stat-label">Gastado</p>
+          <p className="stat-value">{formatCOP(totalGastado)}</p>
+        </div>
+        <div className={`stat ${disponible < 0 ? 'stat-rojo' : 'stat-azul'}`}>
+          <p className="stat-label">Disponible</p>
+          <p className="stat-value">{formatCOP(disponible)}</p>
+        </div>
       </div>
 
-      {ultimaActualizacion && (
-        <p className="ultima-actualizacion">
-          Actualizado {tiempoTranscurrido(ultimaActualizacion.fecha)}
-        </p>
-      )}
+      <section className="entregas">
+        <div className="entregas-texto">
+          <span className="entregas-titulo">Familias entregadas</span>
+          <span className="entregas-cifra">{familiaEntregadas} de {numFamilias}</span>
+        </div>
+        <div className="progreso-barra">
+          <div className="progreso-relleno" style={{ width: `${pctEntregadas}%` }} />
+        </div>
+      </section>
 
       <div className="chart-container">
         <h2>Evolución de la Recolecta</h2>
@@ -444,15 +474,6 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function Card({ label, value, color }) {
-  return (
-    <div className={`card card-${color}`}>
-      <p className="card-label">{label}</p>
-      <p className="card-value">{value}</p>
     </div>
   );
 }
