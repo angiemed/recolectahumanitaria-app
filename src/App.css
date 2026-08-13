@@ -10,6 +10,16 @@ body {
   color: #333;
 }
 
+/* Los títulos fijan color, opacidad y peso de forma explícita.
+   -webkit-text-fill-color evita que iOS los pinte desvanecidos cuando
+   hereda un relleno translúcido de un ancestro (gradientes, animaciones). */
+h1, h2, h3, h4, h5, h6 {
+  color: #333;
+  -webkit-text-fill-color: #333;
+  opacity: 1;
+  font-weight: 700;
+}
+
 .app {
   max-width: 1200px;
   margin: 0 auto;
@@ -24,8 +34,11 @@ body {
   text-align: center;
 }
 
+/* Único título sobre fondo oscuro: va en blanco, no en #333 */
 .header h1 {
   font-size: 2rem;
+  color: white;
+  -webkit-text-fill-color: white;
 }
 
 /* ---------- Navegación ---------- */
@@ -659,7 +672,8 @@ body {
   display: grid;
   gap: 0.3rem;
   font-size: 0.85rem;
-  color: #666;
+  color: #444;
+  -webkit-text-fill-color: #444;
   font-weight: 600;
 }
 
@@ -672,6 +686,8 @@ body {
   font-size: 16px;
   font-family: inherit;
   color: #333;
+  /* El input no hereda el relleno de la etiqueta que lo envuelve */
+  -webkit-text-fill-color: #333;
   font-weight: normal;
 }
 

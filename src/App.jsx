@@ -11,7 +11,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const CATEGORIAS = ['Aseo', 'Alimento', 'Construcción', 'Bebés', 'Salud'];
+const CATEGORIAS = [
+  'Aseo',
+  'Alimento',
+  'Construcción',
+  'Bebés',
+  'Salud',
+  'Medicamentos',
+  'Mascotas',
+  'Otros'
+];
 
 /* ---------- Ideas de compra ---------- */
 
@@ -166,14 +175,9 @@ function tiempoTranscurrido(fecha) {
   return `hace ${dias} ${dias === 1 ? 'día' : 'días'}`;
 }
 
-// Formato colombiano (2:30 PM) para todo lo que lee una persona
+// Formato colombiano de 12 horas (10:34 p. m.) en toda la app, gráfico incluido
 function formatoHora(fecha) {
   return new Date(fecha).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
-}
-
-// El eje del gráfico no tiene ancho para el AM/PM: ahí se usa 24h
-function formatoHoraCorta(fecha) {
-  return new Date(fecha).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 function formatoDiaMes(fecha) {
@@ -310,7 +314,7 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
   }, []);
 
   const datosGrafico = actualizaciones.map(a => ({
-    hora: formatoHoraCorta(a.fecha),
+    hora: formatoHora(a.fecha),
     monto: a.monto
   }));
 
@@ -340,13 +344,15 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
           <ResponsiveContainer width="100%" height={alturaGrafico}>
             <LineChart data={datosGrafico} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" vertical={false} />
+              {/* "10:34 p. m." ocupa más que "22:34": el gap sube para que
+                  Recharts descarte etiquetas antes de encimarlas */}
               <XAxis
                 dataKey="hora"
-                tick={{ fontSize: 12, fill: '#999' }}
+                tick={{ fontSize: esMobile ? 10 : 12, fill: '#999' }}
                 tickLine={false}
                 axisLine={{ stroke: '#e0e0e0' }}
                 interval="preserveStartEnd"
-                minTickGap={esMobile ? 28 : 12}
+                minTickGap={esMobile ? 50 : 28}
               />
               <YAxis
                 tick={{ fontSize: 12, fill: '#999' }}
