@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext, createContext } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useContext, createContext } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, push, onValue, set, update, remove } from 'firebase/database';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -123,6 +123,13 @@ const formatoCOPCorto = new Intl.NumberFormat('es-CO', {
 const formatCOP = (monto) => formatoCOP.format(monto || 0);
 const formatCOPCorto = (monto) => formatoCOPCorto.format(monto || 0);
 
+/* ---------- Lectura de actualizaciones ---------- */
+
+// Los registros nuevos guardan `total` (Nequi + Bancolombia); los guardados
+// antes del cambio traen `monto`. Todo el que lea una actualización pasa por
+// aquí para que el histórico viejo siga contando.
+const totalDe = (actualizacion) => actualizacion?.total ?? actualizacion?.monto ?? 0;
+
 /* ---------- Toast reutilizable ---------- */
 
 const ToastContext = createContext(() => {});
@@ -236,7 +243,7 @@ function AppContenido() {
   const ultimaActualizacion = actualizacionesOrdenadas[actualizacionesOrdenadas.length - 1] || null;
 
   // El total es el monto de la actualización más reciente (no suma ni máximo)
-  const totalRecogido = ultimaActualizacion?.monto || 0;
+  const totalRecogido = totalDe(ultimaActualizacion);
   const totalGastado = gastos.reduce((sum, g) => sum + (g.monto || 0), 0);
   const disponible = totalRecogido - totalGastado;
 
@@ -282,7 +289,7 @@ function AppContenido() {
           />
         )}
 
-        {activeTab === 'actualizar' && <FormActualizarDinero totalRecogido={totalRecogido} />}
+        {activeTab === 'actualizar' && <FormActualizarDinero ultimaActualizacion={ultimaActualizacion} />}
         {activeTab === 'familias' && <PaginaFamilias familias={familias} />}
         {activeTab === 'ideas' && <PaginaIdeasCompras prioridades={prioridades} />}
         {activeTab === 'gastos' && <PaginaGastos gastos={gastos} />}
@@ -299,7 +306,7 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
 
   const borrarActualizacion = (a) => {
     const confirmado = window.confirm(
-      `¿Borrar la actualización de ${formatCOP(a.monto)} del ${formatoDiaMes(a.fecha)} a las ${formatoHora(a.fecha)}?`
+      `¿Borrar la actualización de ${formatCOP(totalDe(a))} del ${formatoDiaMes(a.fecha)} a las ${formatoHora(a.fecha)}?`
     );
     if (!confirmado) return;
     remove(ref(db, `actualizaciones/${a.id}`));
@@ -315,14 +322,14 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
 
   const datosGrafico = actualizaciones.map(a => ({
     hora: formatoHora(a.fecha),
-    monto: a.monto
+    monto: totalDe(a)
   }));
 
   const alturaGrafico = esMobile ? 220 : 300;
 
   // Cuánto subió (o bajó) respecto a la actualización anterior
   const anterior = actualizaciones[actualizaciones.length - 2];
-  const delta = anterior ? totalRecogido - anterior.monto : null;
+  const delta = anterior ? totalRecogido - totalDe(anterior) : null;
 
   const pctEntregadas = numFamilias > 0
     ? Math.round((familiaEntregadas / numFamilias) * 100)
@@ -418,7 +425,7 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
             {[...actualizaciones].reverse().map(a => (
               <div key={a.id} className="item">
                 <div className="item-info">
-                  <span>{formatCOP(a.monto)}</span>
+                  <span>{formatCOP(totalDe(a))}</span>
                   <span className="muted">{formatoDiaMes(a.fecha)} · {formatoHora(a.fecha)}</span>
                 </div>
                 <button className="btn-accion borrar" onClick={() => borrarActualizacion(a)}>
@@ -481,7 +488,7 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
 /* ---------- Input de monto formateado ---------- */
 
 // Guarda solo dígitos, muestra el valor formateado en COP mientras se escribe
-function InputMonto({ value, onChange, placeholder }) {
+function InputMonto({ value, onChange, placeholder, required = true }) {
   return (
     <input
       type="text"
@@ -489,98 +496,87 @@ function InputMonto({ value, onChange, placeholder }) {
       placeholder={placeholder}
       value={value ? formatCOP(parseInt(value, 10)) : ''}
       onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
-      required
+      required={required}
     />
   );
 }
 
 /* ---------- Actualizar Dinero ---------- */
 
-// En ambos casos se guarda el TOTAL acumulado resultante en `monto`, no el
-// aporte suelto: el dashboard y el gráfico leen ese campo como el total
-// vigente. `tipo` solo registra cómo se llegó a esa cifra.
-function FormActualizarDinero({ totalRecogido }) {
+// Se registran los dos saldos tal como están en cada cuenta y el total sale
+// de sumarlos. No se acumula sobre el total anterior: cada registro es una
+// foto del momento, así que reenviar el formulario no infla la cifra.
+function FormActualizarDinero({ ultimaActualizacion }) {
+  const [nequi, setNequi] = useState('');
+  const [bancolombia, setBancolombia] = useState('');
+  const precargado = useRef(false);
+  const mostrarToast = useToast();
+
+  // Precarga una sola vez los saldos ya registrados: si solo cambió una
+  // cuenta, la otra no se manda en cero sin querer. El guard evita que una
+  // actualización de otro voluntario pise lo que se está escribiendo.
+  useEffect(() => {
+    if (precargado.current || !ultimaActualizacion) return;
+    precargado.current = true;
+    setNequi(ultimaActualizacion.saldoNequi ? String(ultimaActualizacion.saldoNequi) : '');
+    setBancolombia(ultimaActualizacion.saldoBancolombia ? String(ultimaActualizacion.saldoBancolombia) : '');
+  }, [ultimaActualizacion]);
+
+  const saldoNequi = parseInt(nequi, 10) || 0;
+  const saldoBancolombia = parseInt(bancolombia, 10) || 0;
+  const total = saldoNequi + saldoBancolombia;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (total <= 0) {
+      mostrarToast('Ingresa al menos un saldo mayor a 0');
+      return;
+    }
+    push(ref(db, 'actualizaciones'), {
+      saldoNequi,
+      saldoBancolombia,
+      total,
+      fecha: new Date().toISOString()
+    });
+    // Los campos no se limpian: siguen siendo los saldos vigentes
+    mostrarToast(`Dinero actualizado. Total: ${formatCOP(total)}`);
+  };
+
   return (
     <div className="dinero">
       <h2>Actualizar Dinero 💰</h2>
-      <FormTotal />
-      <FormAporte totalRecogido={totalRecogido} />
+
+      <form onSubmit={handleSubmit} className="form">
+        <label className="campo">
+          <span>Saldo Nequi</span>
+          <InputMonto
+            value={nequi}
+            onChange={setNequi}
+            placeholder="Saldo Nequi (COP)"
+            required={false}
+          />
+        </label>
+        <p className="form-copy">Ingresa el saldo actual de Nequi</p>
+
+        <label className="campo">
+          <span>Saldo Bancolombia</span>
+          <InputMonto
+            value={bancolombia}
+            onChange={setBancolombia}
+            placeholder="Saldo Bancolombia (COP)"
+            required={false}
+          />
+        </label>
+        <p className="form-copy">Ingresa el saldo actual de Bancolombia</p>
+
+        <div className="total-preview">
+          <span className="total-preview-label">Total</span>
+          <span className="total-preview-valor">{formatCOP(total)}</span>
+        </div>
+
+        <button type="submit">Actualizar Dinero Nequi</button>
+      </form>
     </div>
-  );
-}
-
-function FormTotal() {
-  const [monto, setMonto] = useState('');
-  const mostrarToast = useToast();
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const valor = parseInt(monto, 10);
-    if (!monto || isNaN(valor) || valor <= 0) {
-      mostrarToast('Ingresa un total mayor a 0');
-      return;
-    }
-    // Sin validar contra el total anterior: se permite corregir errores hacia abajo
-    push(ref(db, 'actualizaciones'), {
-      monto: valor,
-      fecha: new Date().toISOString(),
-      tipo: 'actualización'
-    });
-    setMonto('');
-    mostrarToast(`Total actualizado a ${formatCOP(valor)}`);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="form">
-      <h3>Actualizar Total</h3>
-      <p className="form-copy">
-        Usar cuando conoces el monto total exacto recogido
-        (ej: sacaste dinero de la cuenta principal).
-      </p>
-      <InputMonto value={monto} onChange={setMonto} placeholder="Total acumulado (COP)" />
-      <button type="submit">Actualizar Total</button>
-    </form>
-  );
-}
-
-function FormAporte({ totalRecogido }) {
-  const [monto, setMonto] = useState('');
-  const mostrarToast = useToast();
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const aporte = parseInt(monto, 10);
-    if (!monto || isNaN(aporte) || aporte <= 0) {
-      mostrarToast('Ingresa un aporte mayor a 0');
-      return;
-    }
-    const nuevoTotal = totalRecogido + aporte;
-    push(ref(db, 'actualizaciones'), {
-      monto: nuevoTotal,
-      fecha: new Date().toISOString(),
-      tipo: 'aporte'
-    });
-    setMonto('');
-    mostrarToast(`Aporte de ${formatCOP(aporte)} agregado. Nuevo total: ${formatCOP(nuevoTotal)}`);
-  };
-
-  const aporteEnCurso = parseInt(monto, 10);
-  const previsto = monto && !isNaN(aporteEnCurso) ? totalRecogido + aporteEnCurso : null;
-
-  return (
-    <form onSubmit={handleSubmit} className="form">
-      <h3>Agregar Aporte</h3>
-      <p className="form-copy">
-        Usar cuando llegó dinero nuevo y quieres sumarlo al total actual
-        (ej: nuevas donaciones en Nequi).
-      </p>
-      <InputMonto value={monto} onChange={setMonto} placeholder="Monto del aporte (COP)" />
-      <p className="form-copy">
-        Total actual: <strong>{formatCOP(totalRecogido)}</strong>
-        {previsto !== null && <> · Quedará en <strong>{formatCOP(previsto)}</strong></>}
-      </p>
-      <button type="submit">Agregar Aporte</button>
-    </form>
   );
 }
 
