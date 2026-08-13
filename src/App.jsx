@@ -13,6 +13,87 @@ const db = getDatabase(app);
 
 const CATEGORIAS = ['Aseo', 'Alimento', 'Construcción', 'Bebés', 'Salud'];
 
+/* ---------- Ideas de compra ---------- */
+
+// El id es la clave en Firebase: se escribe a mano (no se deriva del nombre)
+// para que renombrar un item no pierda el estado ya registrado.
+const ITEMS_COMIDA = [
+  { id: 'atunes', nombre: 'Atunes' },
+  { id: 'arroz', nombre: 'Arroz' },
+  { id: 'agua', nombre: 'Agua' },
+  { id: 'aceite', nombre: 'Aceite' },
+  { id: 'panela', nombre: 'Panela' },
+  { id: 'chocolate', nombre: 'Chocolate' },
+  { id: 'galletas', nombre: 'Galletas' },
+  { id: 'lentejas', nombre: 'Lentejas' },
+  { id: 'frijoles', nombre: 'Frijoles' },
+  { id: 'harina-maiz', nombre: 'Harina de maíz (P.A.N.)' },
+  { id: 'pasta', nombre: 'Pasta / Fideos' },
+  { id: 'leche-polvo', nombre: 'Leche en polvo' },
+  { id: 'sal', nombre: 'Sal' },
+  { id: 'azucar', nombre: 'Azúcar' },
+  { id: 'cafe', nombre: 'Café' },
+  { id: 'avena', nombre: 'Avena' },
+  { id: 'proteina-soya', nombre: 'Proteína de soya' }
+];
+
+// Ciclo del toggle: falta → recolectando → completo → falta
+const ESTADOS_COMIDA = {
+  falta: { label: 'Falta', siguiente: 'recolectando' },
+  recolectando: { label: 'Recolectando', siguiente: 'completo' },
+  completo: { label: 'Completo', siguiente: 'falta' }
+};
+
+const ESTADO_INICIAL = 'falta';
+
+// Referencia informativa: no se marca ni se guarda, solo orienta la compra
+const CATEGORIAS_REFERENCIA = [
+  {
+    id: 'ropa-otros',
+    titulo: 'Ropa / Otros',
+    emoji: '🧦',
+    items: [
+      'Pañales (niños y adultos)', 'Ropa de bebé',
+      'Bombillos recargables (panel solar)'
+    ]
+  },
+  {
+    id: 'medicamentos',
+    titulo: 'Medicamentos',
+    emoji: '💊',
+    items: [
+      'Vaselina', 'Clorhexidina', 'Isodine', 'Alcohol', 'Solución salina',
+      'Sales de rehidratación', 'Inhaladores (salbutamol)',
+      'Medicamentos inyectables (dexametasona, dipirona, diclofenac)',
+      'Collarines', 'Micropore', 'Torniquetes', 'Cabestrillos', 'Yesos',
+      'Kit de sutura', 'Suturas', 'Guantes estériles', 'Bisturí',
+      'Inmobilizadores', 'Cuello ortopédico', 'Pañales',
+      'Tirillas de glucometría', 'Insulina', 'Amoxicilina'
+    ],
+    donde: 'Locatel · Tiendas clínicas (cerca a Clínica Soma) · Tecnomédica (Premium Plaza)'
+  },
+  {
+    id: 'construccion',
+    titulo: 'Construcción',
+    emoji: '🚧',
+    items: [
+      'Carpas', 'Guantes', 'Cascos', 'Palas', 'Gafas', 'Linternas',
+      'Linternas de cabeza', 'Botas', 'Picas'
+    ]
+  },
+  {
+    id: 'mascotas',
+    titulo: 'Mascotas',
+    emoji: '🐶🐱',
+    items: [
+      'Prednisolona', 'Meloxicam veterinario', 'Carprofeno', 'Robenacoxib',
+      'Amoxicilina', 'Suturas', 'Kit de suturas', 'Catéter intravenoso',
+      'Cloruro de sodio 3%', 'Solution 90', 'Cefalexina',
+      'Jeringas (varios calibres)'
+    ]
+  }
+];
+
 /* ---------- Formato de moneda ---------- */
 
 const formatoCOP = new Intl.NumberFormat('es-CO', {
@@ -85,7 +166,13 @@ function tiempoTranscurrido(fecha) {
   return `hace ${dias} ${dias === 1 ? 'día' : 'días'}`;
 }
 
+// Formato colombiano (2:30 PM) para todo lo que lee una persona
 function formatoHora(fecha) {
+  return new Date(fecha).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+// El eje del gráfico no tiene ancho para el AM/PM: ahí se usa 24h
+function formatoHoraCorta(fecha) {
   return new Date(fecha).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
@@ -108,12 +195,14 @@ function AppContenido() {
   const [familias, setFamilias] = useState([]);
   const [actualizaciones, setActualizaciones] = useState([]);
   const [gastos, setGastos] = useState([]);
+  const [prioridades, setPrioridades] = useState({});
   const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
     const familiasRef = ref(db, 'familias');
     const actualizacionesRef = ref(db, 'actualizaciones');
     const gastosRef = ref(db, 'gastos');
+    const prioridadesRef = ref(db, 'prioridades_comida');
 
     onValue(familiasRef, (snapshot) => {
       const data = snapshot.val();
@@ -128,6 +217,11 @@ function AppContenido() {
     onValue(gastosRef, (snapshot) => {
       const data = snapshot.val();
       setGastos(data ? Object.entries(data).map(([id, val]) => ({ id, ...val })) : []);
+    });
+
+    // Se guarda como objeto (clave = id del item), no como lista
+    onValue(prioridadesRef, (snapshot) => {
+      setPrioridades(snapshot.val() || {});
     });
   }, []);
 
@@ -165,6 +259,7 @@ function AppContenido() {
         <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
         <button className={activeTab === 'actualizar' ? 'active' : ''} onClick={() => setActiveTab('actualizar')}>Actualizar Total</button>
         <button className={activeTab === 'familias' ? 'active' : ''} onClick={() => setActiveTab('familias')}>Familias</button>
+        <button className={activeTab === 'ideas' ? 'active' : ''} onClick={() => setActiveTab('ideas')}>Ideas Compras</button>
         <button className={activeTab === 'gastos' ? 'active' : ''} onClick={() => setActiveTab('gastos')}>Gastos</button>
       </nav>
 
@@ -185,6 +280,7 @@ function AppContenido() {
 
         {activeTab === 'actualizar' && <FormActualizarTotal />}
         {activeTab === 'familias' && <PaginaFamilias familias={familias} />}
+        {activeTab === 'ideas' && <PaginaIdeasCompras prioridades={prioridades} />}
         {activeTab === 'gastos' && <PaginaGastos gastos={gastos} />}
       </main>
     </div>
@@ -214,7 +310,7 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
   }, []);
 
   const datosGrafico = actualizaciones.map(a => ({
-    hora: formatoHora(a.fecha),
+    hora: formatoHoraCorta(a.fecha),
     monto: a.monto
   }));
 
@@ -589,6 +685,102 @@ function ListaFamilias({ familias }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ---------- Ideas Compras ---------- */
+
+function PaginaIdeasCompras({ prioridades }) {
+  return (
+    <div className="pagina">
+      <ChecklistComida prioridades={prioridades} />
+      <ReferenciaCategorias />
+    </div>
+  );
+}
+
+function ChecklistComida({ prioridades }) {
+  const mostrarToast = useToast();
+
+  const estadoDe = (id) => {
+    const estado = prioridades[id]?.estado;
+    // Un estado desconocido (item viejo, dato manual) se trata como "falta"
+    return ESTADOS_COMIDA[estado] ? estado : ESTADO_INICIAL;
+  };
+
+  const avanzarEstado = (item) => {
+    const siguiente = ESTADOS_COMIDA[estadoDe(item.id)].siguiente;
+    set(ref(db, `prioridades_comida/${item.id}`), {
+      estado: siguiente,
+      actualizado: new Date().toISOString()
+    });
+    mostrarToast(`${item.nombre}: ${ESTADOS_COMIDA[siguiente].label}`);
+  };
+
+  const completos = ITEMS_COMIDA.filter(i => estadoDe(i.id) === 'completo').length;
+  const porcentaje = Math.round((completos / ITEMS_COMIDA.length) * 100);
+
+  return (
+    <div className="lista">
+      <h2>Comida (prioritaria) 🥫</h2>
+      <p className="muted nota">
+        No perecederos de bajo costo. Toca un item para cambiar su estado:
+        Falta → Recolectando → Completo. Todos ven los cambios en vivo.
+      </p>
+
+      <div className="progreso">
+        <div className="progreso-texto">
+          <span>{completos} de {ITEMS_COMIDA.length} completos</span>
+          <span className="muted">{porcentaje}%</span>
+        </div>
+        <div className="progreso-barra">
+          <div className="progreso-relleno" style={{ width: `${porcentaje}%` }} />
+        </div>
+      </div>
+
+      <div className="checklist">
+        {ITEMS_COMIDA.map(item => {
+          const estado = estadoDe(item.id);
+          return (
+            <button
+              key={item.id}
+              className={`check-item estado-${estado}`}
+              onClick={() => avanzarEstado(item)}
+            >
+              <span className="check-nombre">{item.nombre}</span>
+              <span className={`badge estado-${estado}`}>{ESTADOS_COMIDA[estado].label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ReferenciaCategorias() {
+  return (
+    <div className="lista">
+      <h2>Otras categorías</h2>
+      <p className="muted nota">
+        Lista de referencia para orientar las compras. No se marca ni se guarda.
+      </p>
+
+      <div className="referencia-grid">
+        {CATEGORIAS_REFERENCIA.map(cat => (
+          <section key={cat.id} className="referencia-card">
+            <h3>{cat.emoji} {cat.titulo}</h3>
+            <ul className="referencia-items">
+              {cat.items.map(item => <li key={item}>{item}</li>)}
+            </ul>
+            {cat.donde && (
+              <p className="referencia-donde">
+                <strong>Dónde conseguir:</strong> {cat.donde}
+              </p>
+            )}
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

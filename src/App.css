@@ -468,6 +468,142 @@ body {
   opacity: 0.8;
 }
 
+/* ---------- Ideas Compras: checklist de comida ---------- */
+
+.progreso {
+  margin-bottom: 1.25rem;
+}
+
+.progreso-texto {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.progreso-barra {
+  height: 8px;
+  border-radius: 999px;
+  background: #eee;
+  overflow: hidden;
+}
+
+.progreso-relleno {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  transition: width 0.3s ease;
+}
+
+.checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.6rem;
+}
+
+/* Toda la fila es el área de tap, no solo el badge */
+.check-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 52px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid #d0d0d0;
+  border-radius: 8px;
+  background: white;
+  font-size: 0.95rem;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.check-item:hover {
+  border-color: #999;
+  background: #fafafa;
+}
+
+.check-nombre {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  color: #333;
+}
+
+.check-item.estado-recolectando {
+  border-left-color: #f59e0b;
+}
+
+.check-item.estado-completo {
+  border-left-color: #10b981;
+  background: #f6fdfa;
+}
+
+.check-item.estado-completo .check-nombre {
+  color: #666;
+}
+
+.badge.estado-falta {
+  background: #fecaca;
+  color: #7f1d1d;
+}
+
+.badge.estado-recolectando {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge.estado-completo {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+/* ---------- Ideas Compras: referencia estática ---------- */
+
+.referencia-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.referencia-card {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.referencia-card h3 {
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.referencia-items {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: #444;
+}
+
+.referencia-donde {
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e0e0e0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #666;
+}
+
 /* ---------- Acciones (editar / borrar / guardar) ---------- */
 
 .acciones {
@@ -634,11 +770,11 @@ body {
     padding: 0.75rem;
   }
 
-  /* Dos botones por fila: los 4 caben en 2 filas, sin scroll horizontal */
+  /* Dos botones por fila: los 5 caben en 3 filas, sin scroll horizontal */
   .nav button {
     flex: 1 1 calc(50% - 0.25rem);
     padding: 0.6rem 0.5rem;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
   }
 
   .content {
@@ -682,6 +818,20 @@ body {
 
   .acciones {
     gap: 0.6rem;
+  }
+
+  /* Una columna: el nombre del item no se parte en dos líneas */
+  .checklist,
+  .referencia-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .check-item {
+    padding: 0.7rem 0.85rem;
+  }
+
+  .referencia-card {
+    padding: 1rem;
   }
 
   .btn-accion {
