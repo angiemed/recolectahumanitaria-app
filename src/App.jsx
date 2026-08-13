@@ -803,19 +803,8 @@ function PaginaGastos({ gastos }) {
 }
 
 function FormGasto() {
-  const [form, setForm] = useState({ categoria: 'Aseo', monto: '', queSe: '', quienCompro: '', factura: '' });
+  const [form, setForm] = useState({ categoria: 'Aseo', monto: '', queSe: '', quienCompro: '' });
   const mostrarToast = useToast();
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setForm({ ...form, factura: event.target.result });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -829,10 +818,9 @@ function FormGasto() {
       monto: valor,
       queSe: form.queSe,
       quienCompro: form.quienCompro,
-      factura: form.factura || null,
       fecha: new Date().toISOString()
     });
-    setForm({ categoria: 'Aseo', monto: '', queSe: '', quienCompro: '', factura: '' });
+    setForm({ categoria: 'Aseo', monto: '', queSe: '', quienCompro: '' });
     mostrarToast('Gasto registrado');
   };
 
@@ -845,8 +833,6 @@ function FormGasto() {
       <InputMonto value={form.monto} onChange={(monto) => setForm({ ...form, monto })} placeholder="Monto (COP)" />
       <input type="text" placeholder="¿Qué se compró?" value={form.queSe} onChange={(e) => setForm({ ...form, queSe: e.target.value })} />
       <input type="text" placeholder="¿Quién compró? (opcional)" value={form.quienCompro} onChange={(e) => setForm({ ...form, quienCompro: e.target.value })} />
-      <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={handleFileUpload} />
-      {form.factura && <p className="muted">Factura adjunta ✓</p>}
       <button type="submit">Registrar Gasto</button>
     </form>
   );
@@ -856,13 +842,6 @@ function ListaGastos({ gastos }) {
   const [editando, setEditando] = useState(null);
   const [formEdit, setFormEdit] = useState({ categoria: 'Aseo', queSe: '', quienCompro: '' });
   const mostrarToast = useToast();
-
-  const descargarFactura = (factura) => {
-    const link = document.createElement('a');
-    link.href = factura;
-    link.download = 'factura.pdf';
-    link.click();
-  };
 
   const iniciarEdicion = (g) => {
     setEditando(g.id);
@@ -910,7 +889,6 @@ function ListaGastos({ gastos }) {
                   <th>Descripción</th>
                   <th>Quién</th>
                   <th>Fecha</th>
-                  <th>Factura</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -952,15 +930,6 @@ function ListaGastos({ gastos }) {
                         ) : (g.quienCompro || '-')}
                       </td>
                       <td>{new Date(g.fecha).toLocaleDateString('es-CO')}</td>
-                      <td>
-                        {g.factura ? (
-                          <button className="link" onClick={() => descargarFactura(g.factura)}>
-                            Descargar
-                          </button>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
                       <td>
                         <div className="acciones">
                           {enEdicion ? (
