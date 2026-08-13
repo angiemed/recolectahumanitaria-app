@@ -8,6 +8,10 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   background: #f5f5f5;
   color: #333;
+  /* La app es de tema claro. Sin esto, iOS/Android en modo oscuro pintan
+     los campos con su propio estilo: fondo oscuro y texto claro sobre
+     tarjetas blancas, que es justo lo que se veía ilegible. */
+  color-scheme: light;
 }
 
 /* Los títulos fijan color, opacidad y peso de forma explícita.
@@ -18,6 +22,45 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-text-fill-color: #333;
   opacity: 1;
   font-weight: 700;
+}
+
+/* ---------- Campos de formulario (base única) ----------
+   Todos los campos de la app —registro, edición inline, buscador— salen
+   de aquí. Las reglas más específicas de abajo solo ajustan diferencias
+   (padding compacto, ancho mínimo), nunca el color ni el fondo. */
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.75rem;
+  background-color: white;
+  color: #333;
+  -webkit-text-fill-color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  /* 16px evita que iOS haga zoom automático al enfocar el campo */
+  font-size: 16px;
+  font-family: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  background-color: #fafafa;
+  color: #000;
+  -webkit-text-fill-color: #000;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Firefox atenúa el placeholder por su cuenta: opacity lo iguala */
+::placeholder {
+  color: #666;
+  -webkit-text-fill-color: #666;
+  opacity: 1;
 }
 
 .app {
@@ -235,27 +278,6 @@ h1, h2, h3, h4, h5, h6 {
   color: #333;
 }
 
-.form input,
-.form select,
-.form textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  /* 16px evita que iOS haga zoom automático al enfocar el campo */
-  font-size: 16px;
-  font-family: inherit;
-  min-height: 44px;
-}
-
-.form input:focus,
-.form select:focus,
-.form textarea:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
 .form textarea {
   resize: vertical;
   min-height: 80px;
@@ -332,20 +354,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .buscador {
-  width: 100%;
-  min-height: 44px;
-  padding: 0.75rem;
   margin-bottom: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
-  font-family: inherit;
-}
-
-.buscador:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 /* ---------- Familias expandibles ---------- */
@@ -646,50 +655,30 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Campos del formulario de edición inline (familias) */
+/* La etiqueta ("Nombre", "# Personas", "Contacto") va sobre su campo */
 .campo {
   display: grid;
-  gap: 0.3rem;
-  font-size: 0.85rem;
-  color: #444;
-  -webkit-text-fill-color: #444;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #333;
+  -webkit-text-fill-color: #333;
   font-weight: 600;
 }
 
+/* El campo no hereda el peso ni el tamaño de la etiqueta que lo envuelve */
 .campo input {
-  width: 100%;
-  min-height: 44px;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
-  font-family: inherit;
-  color: #333;
-  /* El input no hereda el relleno de la etiqueta que lo envuelve */
-  -webkit-text-fill-color: #333;
   font-weight: normal;
 }
 
-.campo input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
 /* Campos de edición dentro de la tabla de gastos */
+/* Más compacto que el campo estándar y con borde marcado, para que se note
+   qué fila está en edición dentro de la tabla */
 .input-tabla {
-  width: 100%;
   min-width: 120px;
   min-height: 40px;
   padding: 0.4rem 0.5rem;
-  border: 1px solid #667eea;
-  border-radius: 4px;
-  font-size: 16px;
-  font-family: inherit;
-}
-
-.input-tabla:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #667eea;
 }
 
 .nota {
