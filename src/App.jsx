@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useContext, createContext } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, push, onValue, set } from 'firebase/database';
+import { getDatabase, ref, push, onValue, set, update, remove } from 'firebase/database';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './App.css';
 
@@ -10,6 +10,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+
+const CATEGORIAS = ['Aseo', 'Alimento', 'Construcción', 'Bebés', 'Salud'];
 
 /* ---------- Formato de moneda ---------- */
 
@@ -193,6 +195,16 @@ function AppContenido() {
 
 function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, familiaEntregadas, gastoPorCategoria, actualizaciones, ultimaActualizacion, gastos }) {
   const esMobile = useEsMobile();
+  const mostrarToast = useToast();
+
+  const borrarActualizacion = (a) => {
+    const confirmado = window.confirm(
+      `¿Borrar la actualización de ${formatCOP(a.monto)} del ${formatoDiaMes(a.fecha)} a las ${formatoHora(a.fecha)}?`
+    );
+    if (!confirmado) return;
+    remove(ref(db, `actualizaciones/${a.id}`));
+    mostrarToast('Actualización borrada');
+  };
 
   // Refresca el "hace X min" cada minuto sin depender de nuevos datos
   const [, setTick] = useState(0);
@@ -267,11 +279,19 @@ function Dashboard({ totalRecogido, totalGastado, disponible, numFamilias, famil
       {actualizaciones.length > 0 && (
         <div className="recent-section">
           <h2>Historial de Actualizaciones</h2>
+          <p className="muted nota">
+            Las actualizaciones no se editan: si un monto quedó mal, bórralo y registra uno nuevo.
+          </p>
           <div className="list historial">
             {[...actualizaciones].reverse().map(a => (
               <div key={a.id} className="item">
-                <span>{formatCOP(a.monto)}</span>
-                <span className="muted">{formatoDiaMes(a.fecha)} · {formatoHora(a.fecha)}</span>
+                <div className="item-info">
+                  <span>{formatCOP(a.monto)}</span>
+                  <span className="muted">{formatoDiaMes(a.fecha)} · {formatoHora(a.fecha)}</span>
+                </div>
+                <button className="btn-accion borrar" onClick={() => borrarActualizacion(a)}>
+                  Borrar
+                </button>
               </div>
             ))}
           </div>
@@ -428,11 +448,44 @@ function FormFamilia() {
 function ListaFamilias({ familias }) {
   const [busqueda, setBusqueda] = useState('');
   const [expandida, setExpandida] = useState(null);
+  const [editando, setEditando] = useState(null);
+  const [formEdit, setFormEdit] = useState({ nombre: '', personas: '', contacto: '' });
   const mostrarToast = useToast();
 
   const marcarEntregado = (id, entregado) => {
     set(ref(db, `familias/${id}/entregado`), !entregado);
     mostrarToast(entregado ? 'Marcada pendiente' : 'Marcada entregada');
+  };
+
+  const iniciarEdicion = (f) => {
+    setEditando(f.id);
+    setFormEdit({
+      nombre: f.nombre || '',
+      personas: f.personas ? String(f.personas) : '',
+      contacto: f.contacto || ''
+    });
+  };
+
+  const guardarEdicion = (id) => {
+    if (!formEdit.nombre.trim()) {
+      mostrarToast('Nombre es requerido');
+      return;
+    }
+    // update sobre el nodo existente: no crea un registro nuevo
+    update(ref(db, `familias/${id}`), {
+      nombre: formEdit.nombre.trim(),
+      personas: parseInt(formEdit.personas, 10) || 0,
+      contacto: formEdit.contacto
+    });
+    setEditando(null);
+    mostrarToast('Familia actualizada');
+  };
+
+  const borrarFamilia = (f) => {
+    if (!window.confirm(`¿Borrar la familia "${f.nombre}"? Esta acción no se puede deshacer.`)) return;
+    remove(ref(db, `familias/${f.id}`));
+    if (expandida === f.id) setExpandida(null);
+    mostrarToast('Familia borrada');
   };
 
   const filtradas = familias.filter(f =>
@@ -473,16 +526,62 @@ function ListaFamilias({ familias }) {
                   </span>
                 </button>
 
-                {abierta && (
+                {abierta && editando === f.id && (
+                  <div className="familia-detalle">
+                    <label className="campo">
+                      <span>Nombre</span>
+                      <input
+                        type="text"
+                        value={formEdit.nombre}
+                        onChange={(e) => setFormEdit({ ...formEdit, nombre: e.target.value })}
+                      />
+                    </label>
+                    <label className="campo">
+                      <span># Personas</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={formEdit.personas}
+                        onChange={(e) => setFormEdit({ ...formEdit, personas: e.target.value })}
+                      />
+                    </label>
+                    <label className="campo">
+                      <span>Contacto</span>
+                      <input
+                        type="text"
+                        value={formEdit.contacto}
+                        onChange={(e) => setFormEdit({ ...formEdit, contacto: e.target.value })}
+                      />
+                    </label>
+                    <div className="acciones">
+                      <button className="btn-accion guardar" onClick={() => guardarEdicion(f.id)}>
+                        Guardar cambios
+                      </button>
+                      <button className="btn-accion" onClick={() => setEditando(null)}>
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {abierta && editando !== f.id && (
                   <div className="familia-detalle">
                     <p><strong># Personas:</strong> {f.personas || '-'}</p>
                     <p><strong>Contacto:</strong> {f.contacto || '-'}</p>
-                    <button
-                      className={`btn-estado ${f.entregado ? 'entregado' : 'pendiente'}`}
-                      onClick={() => marcarEntregado(f.id, f.entregado)}
-                    >
-                      {f.entregado ? 'Marcar Pendiente' : 'Marcar Entregado'}
-                    </button>
+                    <div className="acciones">
+                      <button
+                        className={`btn-estado ${f.entregado ? 'entregado' : 'pendiente'}`}
+                        onClick={() => marcarEntregado(f.id, f.entregado)}
+                      >
+                        {f.entregado ? 'Marcar Pendiente' : 'Marcar Entregado'}
+                      </button>
+                      <button className="btn-accion" onClick={() => iniciarEdicion(f)}>
+                        Editar
+                      </button>
+                      <button className="btn-accion borrar" onClick={() => borrarFamilia(f)}>
+                        Borrar
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -543,11 +642,7 @@ function FormGasto() {
     <form onSubmit={handleSubmit} className="form">
       <h2>Registrar Gasto</h2>
       <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })}>
-        <option>Aseo</option>
-        <option>Alimento</option>
-        <option>Construcción</option>
-        <option>Bebés</option>
-        <option>Salud</option>
+        {CATEGORIAS.map(cat => <option key={cat}>{cat}</option>)}
       </select>
       <InputMonto value={form.monto} onChange={(monto) => setForm({ ...form, monto })} placeholder="Monto (COP)" />
       <input type="text" placeholder="¿Qué se compró?" value={form.queSe} onChange={(e) => setForm({ ...form, queSe: e.target.value })} />
@@ -560,11 +655,42 @@ function FormGasto() {
 }
 
 function ListaGastos({ gastos }) {
+  const [editando, setEditando] = useState(null);
+  const [formEdit, setFormEdit] = useState({ categoria: 'Aseo', queSe: '', quienCompro: '' });
+  const mostrarToast = useToast();
+
   const descargarFactura = (factura) => {
     const link = document.createElement('a');
     link.href = factura;
     link.download = 'factura.pdf';
     link.click();
+  };
+
+  const iniciarEdicion = (g) => {
+    setEditando(g.id);
+    setFormEdit({
+      categoria: g.categoria || 'Aseo',
+      queSe: g.queSe || '',
+      quienCompro: g.quienCompro || ''
+    });
+  };
+
+  // El monto queda fuera de la edición a propósito: corregirlo exige borrar y volver a registrar
+  const guardarEdicion = (id) => {
+    update(ref(db, `gastos/${id}`), {
+      categoria: formEdit.categoria,
+      queSe: formEdit.queSe,
+      quienCompro: formEdit.quienCompro
+    });
+    setEditando(null);
+    mostrarToast('Gasto actualizado');
+  };
+
+  const borrarGasto = (g) => {
+    if (!window.confirm(`¿Borrar el gasto de ${formatCOP(g.monto)} (${g.queSe || 'sin descripción'})?`)) return;
+    remove(ref(db, `gastos/${g.id}`));
+    if (editando === g.id) setEditando(null);
+    mostrarToast('Gasto borrado');
   };
 
   return (
@@ -573,40 +699,100 @@ function ListaGastos({ gastos }) {
       {gastos.length === 0 ? (
         <p className="muted">No hay gastos registrados</p>
       ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Categoría</th>
-                <th>Monto</th>
-                <th>Descripción</th>
-                <th>Quién</th>
-                <th>Fecha</th>
-                <th>Factura</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gastos.map(g => (
-                <tr key={g.id}>
-                  <td>{g.categoria}</td>
-                  <td>{formatCOP(g.monto)}</td>
-                  <td>{g.queSe}</td>
-                  <td>{g.quienCompro || '-'}</td>
-                  <td>{new Date(g.fecha).toLocaleDateString('es-CO')}</td>
-                  <td>
-                    {g.factura ? (
-                      <button className="link" onClick={() => descargarFactura(g.factura)}>
-                        Descargar
-                      </button>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
+        <>
+          <p className="muted nota">
+            El monto no se puede editar: si quedó mal, borra el gasto y regístralo de nuevo.
+          </p>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Categoría</th>
+                  <th>Monto</th>
+                  <th>Descripción</th>
+                  <th>Quién</th>
+                  <th>Fecha</th>
+                  <th>Factura</th>
+                  <th>Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {gastos.map(g => {
+                  const enEdicion = editando === g.id;
+                  return (
+                    <tr key={g.id}>
+                      <td>
+                        {enEdicion ? (
+                          <select
+                            className="input-tabla"
+                            value={formEdit.categoria}
+                            onChange={(e) => setFormEdit({ ...formEdit, categoria: e.target.value })}
+                          >
+                            {CATEGORIAS.map(cat => <option key={cat}>{cat}</option>)}
+                          </select>
+                        ) : g.categoria}
+                      </td>
+                      <td>{formatCOP(g.monto)}</td>
+                      <td>
+                        {enEdicion ? (
+                          <input
+                            type="text"
+                            className="input-tabla"
+                            value={formEdit.queSe}
+                            onChange={(e) => setFormEdit({ ...formEdit, queSe: e.target.value })}
+                          />
+                        ) : g.queSe}
+                      </td>
+                      <td>
+                        {enEdicion ? (
+                          <input
+                            type="text"
+                            className="input-tabla"
+                            value={formEdit.quienCompro}
+                            onChange={(e) => setFormEdit({ ...formEdit, quienCompro: e.target.value })}
+                          />
+                        ) : (g.quienCompro || '-')}
+                      </td>
+                      <td>{new Date(g.fecha).toLocaleDateString('es-CO')}</td>
+                      <td>
+                        {g.factura ? (
+                          <button className="link" onClick={() => descargarFactura(g.factura)}>
+                            Descargar
+                          </button>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td>
+                        <div className="acciones">
+                          {enEdicion ? (
+                            <>
+                              <button className="btn-accion guardar" onClick={() => guardarEdicion(g.id)}>
+                                Guardar
+                              </button>
+                              <button className="btn-accion" onClick={() => setEditando(null)}>
+                                Cancelar
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button className="btn-accion" onClick={() => iniciarEdicion(g)}>
+                                Editar
+                              </button>
+                              <button className="btn-accion borrar" onClick={() => borrarGasto(g)}>
+                                Borrar
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

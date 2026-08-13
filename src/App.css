@@ -79,6 +79,13 @@ body {
   gap: 2rem;
 }
 
+/* Sin esto, un hijo ancho (tabla, input file) estira la columna del grid
+   más allá del viewport y todo el contenido queda pegado a los bordes */
+.pagina > *,
+.dashboard > * {
+  min-width: 0;
+}
+
 /* ---------- Cards ---------- */
 
 .cards {
@@ -193,13 +200,21 @@ body {
 /* ---------- Formularios ---------- */
 
 .form {
+  width: 100%;
   max-width: 600px;
+  min-width: 0;
   background: white;
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   display: grid;
   gap: 1rem;
+}
+
+/* Ningún campo puede desbordar el ancho del formulario */
+.form > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .form h2 {
@@ -231,6 +246,28 @@ body {
 .form textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+/* iOS Safari le da al file input un ancho intrínseco que desborda el form */
+.form input[type="file"] {
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem;
+  background: #fafafa;
+  font-size: 0.9rem;
+}
+
+.form input[type="file"]::file-selector-button {
+  min-height: 36px;
+  margin-right: 0.75rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
 }
 
 .form button {
@@ -431,6 +468,113 @@ body {
   opacity: 0.8;
 }
 
+/* ---------- Acciones (editar / borrar / guardar) ---------- */
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.btn-accion {
+  min-height: 44px;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  color: #444;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btn-accion:hover {
+  border-color: #999;
+  background: #f7f7f7;
+}
+
+.btn-accion.guardar {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
+.btn-accion.guardar:hover {
+  background: #5a6fd6;
+}
+
+.btn-accion.borrar {
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.btn-accion.borrar:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+/* Campos del formulario de edición inline (familias) */
+.campo {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 600;
+}
+
+.campo input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+  font-family: inherit;
+  color: #333;
+  font-weight: normal;
+}
+
+.campo input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* Campos de edición dentro de la tabla de gastos */
+.input-tabla {
+  width: 100%;
+  min-width: 120px;
+  min-height: 40px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #667eea;
+  border-radius: 4px;
+  font-size: 16px;
+  font-family: inherit;
+}
+
+.input-tabla:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.nota {
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.item-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
 .link {
   background: none;
   border: none;
@@ -526,13 +670,22 @@ body {
 
   .form {
     max-width: 100%;
-    padding: 1.25rem 1rem;
+    padding: 1.25rem;
   }
 
-  .item {
+  /* El item conserva la fila para que el botón Borrar quede a la derecha */
+  .item-info {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
+  }
+
+  .acciones {
+    gap: 0.6rem;
+  }
+
+  .btn-accion {
+    padding: 0.6rem 0.9rem;
   }
 
   .toast {
